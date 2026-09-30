@@ -15,6 +15,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,28 +29,42 @@ jobs:
           test -f MangaYomiAndroid/settings.gradle.kts
           test -f MangaYomiAndroid/app/build.gradle.kts
 
-      - name: Set up Java 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true
+      - name: Configure Android SDK
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$ANDROID_HOME" --licenses
+          result=$?
+          set -o pipefail
+          exit "$result"
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$ANDROID_HOME" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build Manga Yomi APK
+      - name: Build APK
         working-directory: MangaYomiAndroid
         run: gradle --no-daemon :app:assembleDebug
 
