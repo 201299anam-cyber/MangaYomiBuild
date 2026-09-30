@@ -1,26 +1,31 @@
+
 name: Build Manga Yomi APK
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'MangaYomiAndroid-Starter.zip'
       - '.github/workflows/android.yml'
-  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Extract Android project
         run: |
-          test -f MangaYomiAndroid-Starter.zip
           unzip -o MangaYomiAndroid-Starter.zip -d .
           test -f MangaYomiAndroid/settings.gradle.kts
+          test -f MangaYomiAndroid/app/build.gradle.kts
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -31,18 +36,24 @@ jobs:
         with:
           accept-android-sdk-licenses: true
 
-      - name: Install Gradle
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build Manga Yomi APK
         working-directory: MangaYomiAndroid
-        run: gradle :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Manga-Yomi-debug-APK
           path: MangaYomiAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 7
